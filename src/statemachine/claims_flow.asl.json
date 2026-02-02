@@ -1,0 +1,9 @@
+{
+  "StartAt": "HandleClaim",
+  "States": {
+    "HandleClaim": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}

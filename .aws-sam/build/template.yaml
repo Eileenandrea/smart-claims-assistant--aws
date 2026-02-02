@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Smart Claims Assistant - Serverless Boilerplate
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 10
+    MemorySize: 256
+Resources:
+  ClaimsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ClaimsTable
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: claimId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: claimId
+        KeyType: HASH
+  ClaimsHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ClaimsHandler
+      CodeUri: ClaimsHandlerFunction
+      Handler: app.lambda_handler
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: ClaimsTable
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ClaimsTable
+      Events:
+        ApiRequest:
+          Type: Api
+          Properties:
+            Path: /claims
+            Method: post
+    Metadata:
+      SamResourceId: ClaimsHandlerFunction
+  ClaimsStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: ClaimsWorkflow
+      DefinitionUri: ../../src/statemachine/claims_flow.asl.json
+      DefinitionSubstitutions:
+        ClaimsHandlerArn:
+          Fn::GetAtt:
+          - ClaimsHandlerFunction
+          - Arn
+      Policies:
+      - LambdaInvokePolicy:
+          FunctionName:
+            Ref: ClaimsHandlerFunction
+  ClaimsApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: ClaimsApi
+      StageName: dev
+  ClaimsLexBot:
+    Type: AWS::Lex::Bot
+    Properties:
+      Name: SmartClaimsLexBot
+      RoleArn: arn:aws:iam::123456789012:role/LexServiceRole
+      DataPrivacy:
+        ChildDirected: false
+      IdleSessionTTLInSeconds: 300
+  ClaimsConnectInstance:
+    Type: AWS::Connect::Instance
+    Properties:
+      IdentityManagementType: CONNECT_MANAGED
+      InstanceAlias: smart-claims-connect
+      InboundCallsEnabled: true
+      OutboundCallsEnabled: true
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint
+    Value:
+      Fn::Sub: https://${ClaimsApi}.execute-api.${AWS::Region}.amazonaws.com/dev/claims
