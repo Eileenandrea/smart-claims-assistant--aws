@@ -39,6 +39,7 @@ Resources:
         ApiRequest:
           Type: Api
           Properties:
+            RestApiId: !Ref ClaimsApi
             Path: /claims
             Method: post
 
@@ -62,23 +63,24 @@ Resources:
       StageName: dev
 
   ### Amazon Lex (Placeholder) ###
-  ClaimsLexBot:
-    Type: AWS::Lex::Bot
-    Properties:
-      Name: SmartClaimsLexBot
-      RoleArn: arn:aws:iam::123456789012:role/LexServiceRole
-      DataPrivacy:
-        ChildDirected: false
-      IdleSessionTTLInSeconds: 300
+  # ClaimsLexBot:
+  #   Type: AWS::Lex::Bot
+  #   Properties:
+  #     Name: SmartClaimsLexBot
+  #     RoleArn: arn:aws:iam::123456789012:role/LexServiceRole
+  #     DataPrivacy:
+  #       ChildDirected: false
+  #     IdleSessionTTLInSeconds: 300
 
   ### Amazon Connect (Placeholder) ###
-  ClaimsConnectInstance:
-    Type: AWS::Connect::Instance
-    Properties:
-      IdentityManagementType: CONNECT_MANAGED
-      InstanceAlias: smart-claims-connect
-      InboundCallsEnabled: true
-      OutboundCallsEnabled: true
+  # ClaimsConnectInstance:
+  # Type: AWS::Connect::Instance
+  # Properties:
+  #   IdentityManagementType: CONNECT_MANAGED
+  #   InstanceAlias: smart-claims-connect
+  #   Attributes:
+  #     InboundCalls: true
+  #     OutboundCalls: true
 
 Outputs:
   ApiUrl:
