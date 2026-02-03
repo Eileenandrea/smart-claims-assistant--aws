@@ -16,13 +16,18 @@ Resources:
       TableName: ClaimsTable
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: claimId
+        - AttributeName: ClaimID
           AttributeType: S
       KeySchema:
-        - AttributeName: claimId
+        - AttributeName: ClaimID
           KeyType: HASH
 
   ### Lambda ###
+
+  ClaimsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+
   ClaimsHandlerFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -55,6 +60,42 @@ Resources:
         - LambdaInvokePolicy:
             FunctionName: !Ref ClaimsHandlerFunction
 
+  ClaimsProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ClaimsProcessor
+      CodeUri: src/lambda/claims_handler/
+      Handler: processor.handler
+      Runtime: python3.11
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref ClaimsBucket
+          TABLE_NAME: !Ref ClaimsTable
+          TARGET_LANGUAGE: "es"
+          VOICE_ID: "Joanna"
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - textract:AnalyzeDocument
+                - bedrock:InvokeModel
+                - polly:SynthesizeSpeech
+                - translate:TranslateText
+                - dynamodb:PutItem
+                - dynamodb:GetItem
+                - s3:PutObject
+                - s3:GetObject
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "*"
+      Events:
+        S3Upload:
+          Type: S3
+          Properties:
+            Bucket: !Ref ClaimsBucket
+            Events: s3:ObjectCreated:*
+
   ### API Gateway ###
   ClaimsApi:
     Type: AWS::Serverless::Api
@@ -86,3 +127,11 @@ Outputs:
   ApiUrl:
     Description: API Gateway endpoint
     Value: !Sub "https://${ClaimsApi}.execute-api.${AWS::Region}.amazonaws.com/dev/claims"
+
+  BucketName:
+    Description: S3 bucket for claims
+    Value: !Ref ClaimsBucket
+
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref ClaimsTable
