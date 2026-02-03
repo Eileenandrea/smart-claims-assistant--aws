@@ -8,6 +8,12 @@ Globals:
     Timeout: 10
     MemorySize: 256
 
+Parameters:
+  ExistingBucketName:
+    Type: String
+    Default: "claims-bucket-acn"
+    Description: "Existing S3 bucket name for claims (must exist in the same region as the stack)"
+
 Resources:
   ### DynamoDB ###
   ClaimsTable:
@@ -23,10 +29,6 @@ Resources:
           KeyType: HASH
 
   ### Lambda ###
-
-  ClaimsBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
 
   ClaimsHandlerFunction:
     Type: AWS::Serverless::Function
@@ -69,7 +71,7 @@ Resources:
       Runtime: python3.11
       Environment:
         Variables:
-          BUCKET_NAME: !Ref ClaimsBucket
+          BUCKET_NAME: !Ref ExistingBucketName
           TABLE_NAME: !Ref ClaimsTable
           TARGET_LANGUAGE: "es"
           VOICE_ID: "Joanna"
@@ -89,12 +91,24 @@ Resources:
                 - logs:CreateLogStream
                 - logs:PutLogEvents
               Resource: "*"
+      # NOTE: S3 notification configuration for an existing bucket must be set outside
+      #       the SAM template. See Outputs and README for instructions to add the
+      #       bucket notification and ensure S3 is allowed to invoke the function.
       Events:
-        S3Upload:
-          Type: S3
+        ApiTest:
+          Type: Api
           Properties:
-            Bucket: !Ref ClaimsBucket
-            Events: s3:ObjectCreated:*
+            RestApiId: !Ref ClaimsApi
+            Path: /process-s3
+            Method: post
+
+  ClaimsProcessorS3InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ClaimsProcessorFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${ExistingBucketName}
 
   ### API Gateway ###
   ClaimsApi:
@@ -130,7 +144,7 @@ Outputs:
 
   BucketName:
     Description: S3 bucket for claims
-    Value: !Ref ClaimsBucket
+    Value: !Ref ExistingBucketName
 
   TableName:
     Description: DynamoDB table name

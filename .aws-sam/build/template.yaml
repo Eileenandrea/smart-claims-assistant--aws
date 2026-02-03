@@ -6,6 +6,12 @@ Globals:
     Runtime: python3.11
     Timeout: 10
     MemorySize: 256
+Parameters:
+  ExistingBucketName:
+    Type: String
+    Default: claims-bucket-acn
+    Description: Existing S3 bucket name for claims (must exist in the same region
+      as the stack)
 Resources:
   ClaimsTable:
     Type: AWS::DynamoDB::Table
@@ -13,10 +19,10 @@ Resources:
       TableName: ClaimsTable
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-      - AttributeName: claimId
+      - AttributeName: ClaimID
         AttributeType: S
       KeySchema:
-      - AttributeName: claimId
+      - AttributeName: ClaimID
         KeyType: HASH
   ClaimsHandlerFunction:
     Type: AWS::Serverless::Function
@@ -56,6 +62,58 @@ Resources:
       - LambdaInvokePolicy:
           FunctionName:
             Ref: ClaimsHandlerFunction
+  ClaimsProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ClaimsProcessor
+      CodeUri: ClaimsProcessorFunction
+      Handler: processor.handler
+      Runtime: python3.11
+      Environment:
+        Variables:
+          BUCKET_NAME:
+            Ref: ExistingBucketName
+          TABLE_NAME:
+            Ref: ClaimsTable
+          TARGET_LANGUAGE: es
+          VOICE_ID: Joanna
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - textract:AnalyzeDocument
+          - bedrock:InvokeModel
+          - polly:SynthesizeSpeech
+          - translate:TranslateText
+          - dynamodb:PutItem
+          - dynamodb:GetItem
+          - s3:PutObject
+          - s3:GetObject
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Resource: '*'
+      Events:
+        ApiTest:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ClaimsApi
+            Path: /process-s3
+            Method: post
+    Metadata:
+      SamResourceId: ClaimsProcessorFunction
+  ClaimsProcessorS3InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+        - ClaimsProcessorFunction
+        - Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:s3:::${ExistingBucketName}
   ClaimsApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -66,3 +124,11 @@ Outputs:
     Description: API Gateway endpoint
     Value:
       Fn::Sub: https://${ClaimsApi}.execute-api.${AWS::Region}.amazonaws.com/dev/claims
+  BucketName:
+    Description: S3 bucket for claims
+    Value:
+      Ref: ExistingBucketName
+  TableName:
+    Description: DynamoDB table name
+    Value:
+      Ref: ClaimsTable
