@@ -1,0 +1,22 @@
+Pre-requisites
+AWS Account with appropriate permissions.
+AWS CLI configured.
+Node.js & AWS CDK installed (npm install -g aws-cdk).
+Python or TypeScript environment for CDK code.
+
+cdk bootstrap aws://ACCOUNT_ID/REGION
+
+Initialize CDK Project
+mkdir ai-claims-assistant
+cd ai-claims-assistant
+cdk init app --language python
+
+
+
+ai-claims-assistant/
+├── app.py
+├── requirements.txt
+├── ai_claims_stack.py
+└── lambda/
+    └── processor.py
+

@@ -1,0 +1,9 @@
+
+aws-cdk.core
+aws-cdk.aws-s3
+aws-cdk.aws-lambda
+aws-cdk.aws-apigateway
+aws-cdk.aws-dynamodb
+aws-cdk.aws-opensearchservice
+aws-cdk.aws-connect
+aws-cdk.aws-lex

@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM template for Claims processor (Lambda + S3 + DynamoDB + API + OpenSearch)
+
+Resources:
+  ClaimsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+
+  ClaimsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: ClaimID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ClaimID
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: ClaimsLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - textract:AnalyzeDocument
+                  - bedrock:InvokeModel
+                  - polly:SynthesizeSpeech
+                  - translate:TranslateText
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - s3:PutObject
+                  - s3:GetObject
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  ClaimsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ClaimsProcessor
+      Runtime: python3.9
+      Handler: processor.handler
+      CodeUri: lambda/
+      Role: !GetAtt LambdaRole.Arn
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref ClaimsBucket
+          TABLE_NAME: !Ref ClaimsTable
+          TARGET_LANGUAGE: "es"
+          VOICE_ID: "Joanna"
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /process
+            Method: post
+        S3Upload:
+          Type: S3
+          Properties:
+            Bucket: !Ref ClaimsBucket
+            Events: s3:ObjectCreated:*
+
+  ClaimsSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      EngineVersion: OpenSearch_2.11
+      DomainName: claims-search-domain
+    DeletionPolicy: Delete
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint for the processor
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/process"
+
+  BucketName:
+    Value: !Ref ClaimsBucket
+
+  TableName:
+    Value: !Ref ClaimsTable
+
+  OpenSearchEndpoint:
+    Value: !GetAtt ClaimsSearchDomain.DomainEndpoint
