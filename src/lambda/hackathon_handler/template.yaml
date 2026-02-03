@@ -1,9 +1,0 @@
-# This template was merged into the root `template.yaml`. The resources are now defined at the repository root and the processor Lambda was moved to `src/lambda/claims_handler/processor.py`.
-BucketName:
-  Value: !Ref ClaimsBucket
-
-TableName:
-  Value: !Ref ClaimsTable
-
-OpenSearchEndpoint:
-  Value: !GetAtt ClaimsSearchDomain.DomainEndpoint
